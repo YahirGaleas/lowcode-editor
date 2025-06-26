@@ -91,6 +91,237 @@ const NodeEditor = ({ node, onUpdate, onDelete, nodes }) => {
         </button>
       </div>
 
+      {node.type === "start" && (
+        <div className="start-config-section">
+          <label>Nombre del flujo:</label>
+          <input
+            type="text"
+            value={localData.flowName || ""}
+            onChange={(e) => handleChange("flowName", e.target.value.trim())}
+            placeholder="Ej. flujoBienvenida"
+          />
+          {(localData.flowName || "").trim() === "" && (
+            <div className="error-message">
+              El nombre del flujo es obligatorio.
+            </div>
+          )}
+          {nodes.filter(
+            (n) =>
+              n.id !== node.id &&
+              n.type === "start" &&
+              n.data?.flowName === (localData.flowName || "")
+          ).length > 0 && (
+            <div className="error-message">
+              Ya existe otro nodo de inicio con este nombre.
+            </div>
+          )}
+
+          <label>Palabras clave:</label>
+          {(localData.keywords || []).map((kw, index) => (
+            <div
+              key={index}
+              style={{ display: "flex", gap: "0.5rem", marginBottom: "0.3rem" }}
+            >
+              <input
+                type="text"
+                value={kw || ""}
+                placeholder="Ej: hola"
+                onChange={(e) => {
+                  const newKeywords = [...(localData.keywords || [])];
+                  newKeywords[index] = e.target.value;
+                  handleChange("keywords", newKeywords);
+                }}
+              />
+              <button
+                onClick={() => {
+                  const newKeywords = [...(localData.keywords || [])];
+                  newKeywords.splice(index, 1);
+                  handleChange("keywords", newKeywords);
+                }}
+                disabled={(localData.keywords || []).length <= 1}
+              >
+                ❌
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => {
+              const newKeywords = [...(localData.keywords || []), ""];
+              handleChange("keywords", newKeywords);
+            }}
+            disabled={(localData.keywords || []).length >= 10}
+          >
+            + Añadir palabra clave
+          </button>
+
+          {/* Validaciones */}
+          {(localData.keywords || []).length === 0 && (
+            <div className="error-message">
+              Debe haber al menos una palabra clave.
+            </div>
+          )}
+          {(localData.keywords || []).some(
+            (kw) => (kw || "").trim() === ""
+          ) && (
+            <div className="error-message">
+              Las palabras clave no pueden estar vacías.
+            </div>
+          )}
+          {new Set(
+            (localData.keywords || []).map((k) =>
+              (k || "").trim().toLowerCase()
+            )
+          ).size !== (localData.keywords || []).length && (
+            <div className="error-message">
+              No se permiten palabras clave duplicadas.
+            </div>
+          )}
+        </div>
+      )}
+
+      {node.type === "api" && (
+        <div className="api-config-section">
+          <label>Nombre del API:</label>
+          <input
+            type="text"
+            value={localData.name || ""}
+            onChange={(e) => handleChange("name", e.target.value)}
+            placeholder="Ej. Consulta IA"
+          />
+
+          <label>URL del Endpoint:</label>
+          <input
+            type="text"
+            value={localData.url || ""}
+            onChange={(e) => handleChange("url", e.target.value)}
+            placeholder="https://api.example.com/endpoint"
+          />
+
+          <label>Método HTTP:</label>
+          <select
+            value={localData.method || "GET"}
+            onChange={(e) => handleChange("method", e.target.value)}
+          >
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+          </select>
+
+          <label>Entradas esperadas:</label>
+          <div className="api-input-options">
+            <label>
+              <input
+                type="checkbox"
+                checked={!!localData.useText}
+                onChange={(e) => handleChange("useText", e.target.checked)}
+              />
+              Texto
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={!!localData.useMedia}
+                onChange={(e) => handleChange("useMedia", e.target.checked)}
+              />
+              Media
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={!!localData.useAudio}
+                onChange={(e) => handleChange("useAudio", e.target.checked)}
+              />
+              Audio
+            </label>
+          </div>
+
+          {/* Request Body dinámico */}
+          <label>Cuerpo de la petición (llave: valor):</label>
+          {(localData.requestBody || []).map((item, idx) => (
+            <div key={`reqbody-${idx}`} className="key-value-pair">
+              <input
+                type="text"
+                placeholder="Llave"
+                value={item.key}
+                onChange={(e) => {
+                  const newRequestBody = [...localData.requestBody];
+                  newRequestBody[idx].key = e.target.value;
+                  handleChange("requestBody", newRequestBody);
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Valor"
+                value={item.value}
+                onChange={(e) => {
+                  const newRequestBody = [...localData.requestBody];
+                  newRequestBody[idx].value = e.target.value;
+                  handleChange("requestBody", newRequestBody);
+                }}
+              />
+              <button
+                onClick={() => {
+                  const newRequestBody = [...localData.requestBody];
+                  newRequestBody.splice(idx, 1);
+                  handleChange("requestBody", newRequestBody);
+                }}
+                title="Eliminar"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() =>
+              handleChange("requestBody", [
+                ...(localData.requestBody || []),
+                { key: "", value: "" },
+              ])
+            }
+          >
+            + Añadir campo
+          </button>
+
+          {/* Variables para capturar la respuesta */}
+          <label>Variables para capturar respuesta:</label>
+          {(localData.responseVars || []).map((v, idx) => (
+            <div key={`respvar-${idx}`} className="response-var-item">
+              <input
+                type="text"
+                placeholder="Nombre de variable"
+                value={v}
+                onChange={(e) => {
+                  const newResponseVars = [...localData.responseVars];
+                  newResponseVars[idx] = e.target.value;
+                  handleChange("responseVars", newResponseVars);
+                }}
+              />
+              <button
+                onClick={() => {
+                  const newResponseVars = [...localData.responseVars];
+                  newResponseVars.splice(idx, 1);
+                  handleChange("responseVars", newResponseVars);
+                }}
+                title="Eliminar"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() =>
+              handleChange("responseVars", [
+                ...(localData.responseVars || []),
+                "",
+              ])
+            }
+          >
+            + Añadir variable
+          </button>
+        </div>
+      )}
+
       {node.type === "message" && (
         <div>
           <label>Contenido del mensaje:</label>
@@ -276,6 +507,7 @@ const NodeEditor = ({ node, onUpdate, onDelete, nodes }) => {
                             <div className="action-setvariable-group">
                               <label>Nombre de la variable:</label>
                               <select
+                                className="action-type-select"
                                 value={action.variableName || ""}
                                 onChange={(e) => {
                                   const selected = definedVariables.find(
@@ -315,43 +547,50 @@ const NodeEditor = ({ node, onUpdate, onDelete, nodes }) => {
                                 }}
                               />
 
-                              <label>Valor:</label>
-                              {action.dataType === "booleano" ? (
-                                <select
-                                  value={action.value || "false"}
-                                  onChange={(e) => {
-                                    const newConditions = [
-                                      ...localData.conditions,
-                                    ];
-                                    newConditions[idx].actions[
-                                      actionIdx
-                                    ].value = e.target.value;
-                                    handleChange("conditions", newConditions);
-                                  }}
-                                >
-                                  <option value="true">Verdadero</option>
-                                  <option value="false">Falso</option>
-                                </select>
-                              ) : (
-                                <input
-                                  type={
-                                    action.dataType === "fecha"
-                                      ? "date"
-                                      : action.dataType === "numero"
-                                      ? "number"
-                                      : "text"
-                                  }
-                                  value={action.value || ""}
-                                  onChange={(e) => {
-                                    const newConditions = [
-                                      ...localData.conditions,
-                                    ];
-                                    newConditions[idx].actions[
-                                      actionIdx
-                                    ].value = e.target.value;
-                                    handleChange("conditions", newConditions);
-                                  }}
-                                />
+                              <label>Operación:</label>
+                              <select
+                                className="action-type-select"
+                                value={action.operation || "="}
+                                onChange={(e) => {
+                                  const newConditions = [
+                                    ...localData.conditions,
+                                  ];
+                                  newConditions[idx].actions[
+                                    actionIdx
+                                  ].operation = e.target.value;
+                                  handleChange("conditions", newConditions);
+                                }}
+                              >
+                                <option value="=">= Asignar</option>
+                                {action.dataType === "numero" && (
+                                  <option value="+=">+= Sumar</option>
+                                )}
+                                {action.dataType === "numero" && (
+                                  <option value="-=">-= Restar</option>
+                                )}
+                                {action.dataType === "booleano" && (
+                                  <option value="toggle">🔁 Invertir</option>
+                                )}
+                              </select>
+
+                              {action.operation !== "toggle" && (
+                                <>
+                                  <label>Valor (literal o ctx.atributo):</label>
+                                  <input
+                                    type="text"
+                                    placeholder="Ej: 10 o ctx.edad"
+                                    value={action.value || ""}
+                                    onChange={(e) => {
+                                      const newConditions = [
+                                        ...localData.conditions,
+                                      ];
+                                      newConditions[idx].actions[
+                                        actionIdx
+                                      ].value = e.target.value;
+                                      handleChange("conditions", newConditions);
+                                    }}
+                                  />
+                                </>
                               )}
                             </div>
                           )}
@@ -443,6 +682,162 @@ const NodeEditor = ({ node, onUpdate, onDelete, nodes }) => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {node.type === "form" && (
+        <div className="form-editor">
+          <div className="input-group">
+            <label>Nombre del formulario:</label>
+            <input
+              type="text"
+              value={localData.name || ""}
+              onChange={(e) => handleChange("name", e.target.value)}
+              placeholder="Ej. Registro Usuario"
+            />
+          </div>
+
+          <div className="fields-editor">
+            <label>Campos del formulario:</label>
+            {(localData.fields || []).map((field, idx) => (
+              <div key={idx} className="field-row">
+                <input
+                  type="text"
+                  placeholder="Etiqueta"
+                  value={field.label}
+                  onChange={(e) => {
+                    const updatedFields = [...localData.fields];
+                    updatedFields[idx].label = e.target.value;
+                    handleChange("fields", updatedFields);
+                  }}
+                />
+                <select
+                  value={field.type}
+                  onChange={(e) => {
+                    const updatedFields = [...localData.fields];
+                    updatedFields[idx].type = e.target.value;
+                    handleChange("fields", updatedFields);
+                  }}
+                >
+                  <option value="texto">Texto</option>
+                  <option value="numero">Número</option>
+                  <option value="booleano">Booleano</option>
+                  <option value="fecha">Fecha</option>
+                </select>
+                <button
+                  onClick={() => {
+                    const updatedFields = [...localData.fields];
+                    updatedFields.splice(idx, 1);
+                    handleChange("fields", updatedFields);
+                  }}
+                  title="Eliminar campo"
+                >
+                  🗑️
+                </button>
+              </div>
+            ))}
+
+            <button
+              className="add-field-btn"
+              onClick={() => {
+                const updatedFields = [...(localData.fields || [])];
+                updatedFields.push({ label: "", type: "texto" });
+                handleChange("fields", updatedFields);
+              }}
+            >
+              + Añadir campo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {node.type === "evaluator" && (
+        <div className="evaluator-config">
+          <label className="input-label">Nombre del evaluador:</label>
+          <input
+            type="text"
+            className="input-text"
+            value={localData.name || ""}
+            onChange={(e) => handleChange("name", e.target.value)}
+            placeholder="Ej. compararEdad"
+          />
+
+          <label className="input-label">Comparación:</label>
+          <div className="comparison-row">
+            <input
+              type="text"
+              className="comparison-input"
+              value={localData.left || ""}
+              onChange={(e) => handleChange("left", e.target.value)}
+              placeholder="Izquierda (ej. edad, 18)"
+            />
+
+            <select
+              className="comparison-operator"
+              value={localData.operator || "=="}
+              onChange={(e) => handleChange("operator", e.target.value)}
+            >
+              <option value="==">==</option>
+              <option value="!=">!=</option>
+              <option value=">">&gt;</option>
+              <option value="<">&lt;</option>
+              <option value=">=">&gt;=</option>
+              <option value="<=">&lt;=</option>
+            </select>
+
+            <input
+              type="text"
+              className="comparison-input"
+              value={localData.right || ""}
+              onChange={(e) => handleChange("right", e.target.value)}
+              placeholder="Derecha (ej. edad, 18)"
+            />
+          </div>
+
+          <label className="input-label">Si es verdadero:</label>
+          <input
+            type="text"
+            className="input-text"
+            value={localData.ifTrue || ""}
+            onChange={(e) => handleChange("ifTrue", e.target.value)}
+            placeholder="Ej. goto:flujoEdadMayor"
+          />
+
+          <label className="input-label">Si es falso:</label>
+          <input
+            type="text"
+            className="input-text"
+            value={localData.ifFalse || ""}
+            onChange={(e) => handleChange("ifFalse", e.target.value)}
+            placeholder="Ej. message:Edad no válida"
+          />
+        </div>
+      )}
+
+      {node.type === "idle" && (
+        <div className="section idle-config">
+          <label>Nombre del nodo:</label>
+          <input
+            type="text"
+            value={localData.name}
+            onChange={(e) => handleChange("name", e.target.value)}
+          />
+
+          <label>Tiempo de espera (segundos):</label>
+          <input
+            type="number"
+            value={localData.timeout}
+            onChange={(e) =>
+              handleChange("timeout", parseInt(e.target.value, 10))
+            }
+          />
+
+          <label>Mensaje de respuesta:</label>
+          <textarea
+            value={localData.message}
+            onChange={(e) => handleChange("message", e.target.value)}
+            placeholder="¿Qué mensaje enviar si el usuario tarda en responder?"
+          />
         </div>
       )}
 

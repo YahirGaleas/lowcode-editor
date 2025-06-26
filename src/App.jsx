@@ -22,6 +22,10 @@ import EndFlowNode from "./components/EndFlowNode";
 import GotoFlowNode from "./components/GotoFlowNode";
 import FlowDynamicNode from "./components/FlowDynamic";
 import SetVariable from "./components/SetVariable";
+import APINode from "./components/APINode";
+import FormNode from "./components/FormNode";
+import EvaluatorNode from "./components/EvaluatorNode";
+import IdleNode from "./components/IdleNode";
 
 import { generateMessageNode } from "./utils/generateMessage";
 import { generateQuestionNode } from "./utils/generateQuestion";
@@ -37,6 +41,10 @@ const nodeTypes = {
   gotoflow: GotoFlowNode,
   flowdynamic: FlowDynamicNode,
   setvariable: SetVariable,
+  api: APINode,
+  form: FormNode,
+  evaluator: EvaluatorNode,
+  idle: IdleNode,
 };
 
 const VALID_CONNECTIONS = {
@@ -48,6 +56,7 @@ const VALID_CONNECTIONS = {
     "gotoflow",
     "flowDynamic",
     "fallback",
+    "form",
   ],
   question: ["action", "condition"],
   condition: [
@@ -179,9 +188,9 @@ export default function App() {
     event.dataTransfer.effectAllowed = "move";
   };
 
-  const isValidConnection = useCallback(
+  /*const isValidConnection = useCallback(
     (connection) => {
-      if (connection.source === connection.target) return false;
+      /*if (connection.source === connection.target) return false;
 
       const sourceNode = nodes.find((n) => n.id === connection.source);
       const targetNode = nodes.find((n) => n.id === connection.target);
@@ -192,7 +201,7 @@ export default function App() {
       return allowedTargets.includes(targetNode.type);
     },
     [nodes]
-  );
+  );*/
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -362,7 +371,7 @@ export default function App() {
             onDragOver={onDragOver}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
-            isValidConnection={isValidConnection}
+            //isValidConnection={isValidConnection}
             fitView
           >
             <Controls />
@@ -416,6 +425,16 @@ export default function App() {
               Condición
             </div>
             <div
+              className="dndnode evaluator"
+              draggable
+              onDragStart={(event) =>
+                event.dataTransfer.setData("application/reactflow", "evaluator")
+              }
+            >
+              Evaluador
+            </div>
+
+            <div
               className="dndnode action"
               draggable
               onDragStart={(event) =>
@@ -424,6 +443,36 @@ export default function App() {
             >
               Acción
             </div>
+            <div
+              className="dndnode api"
+              draggable
+              onDragStart={(event) =>
+                event.dataTransfer.setData("application/reactflow", "api")
+              }
+            >
+              API Request
+            </div>
+
+            <div
+              className="dndnode form"
+              draggable
+              onDragStart={(event) =>
+                event.dataTransfer.setData("application/reactflow", "form")
+              }
+            >
+              Formulario
+            </div>
+
+            <div
+              className="dndnode idle"
+              draggable
+              onDragStart={(event) =>
+                event.dataTransfer.setData("application/reactflow", "idle")
+              }
+            >
+              Idle Timeout
+            </div>
+
             <div
               className="dndnode fallback"
               draggable
