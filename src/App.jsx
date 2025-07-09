@@ -9,6 +9,8 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 
+import { Toaster, toast } from "sonner";
+
 import "reactflow/dist/style.css";
 
 import MessageNode from "./components/MessageNode";
@@ -47,59 +49,149 @@ const nodeTypes = {
   idle: IdleNode,
 };
 
-const VALID_CONNECTIONS = {
-  start: ["message", "question"],
-  message: [
-    "message",
-    "question",
-    "endflow",
-    "gotoflow",
-    "flowDynamic",
-    "fallback",
-    "form",
-  ],
-  question: ["action", "condition"],
-  condition: [
-    "message",
-    "question",
-    "endflow",
-    "gotoflow",
-    "flowDynamic",
-    "fallback",
-    "action",
-  ],
-  action: [
-    "message",
-    "question",
-    "condition",
-    "flowDynamic",
-    "fallback",
-    "endflow",
-    "gotoflow",
-    "action",
-  ],
-  fallback: [
-    "message",
-    "question",
-    "action",
-    "condition",
-    "flowDynamic",
-    "endflow",
-    "gotoflow",
-    "fallback",
-  ],
-  flowDynamic: [
-    "action",
-    "message",
-    "question",
-    "condition",
-    "fallback",
-    "endflow",
-    "gotoflow",
-    "flowDynamic",
-  ],
-  gotoflow: [],
-  endflow: [],
+const NODE_RULES = {
+  start: {
+    inputs: [],
+    outputs: ["message", "question", "action", "api", "form", "flowDynamic"],
+  },
+  message: {
+    inputs: [
+      "start",
+      "message",
+      "condition",
+      "action",
+      "api",
+      "form",
+      "evaluator",
+    ],
+    outputs: ["message", "question", "api", "form", "action"],
+  },
+  question: {
+    inputs: [
+      "start",
+      "message",
+      "question",
+      "condition",
+      "action",
+      "api",
+      "evaluator",
+    ],
+    outputs: ["question", "api", "condition", "action", "evaluator"],
+  },
+  condition: {
+    inputs: ["question", "api", "action", "evaluator", "form"],
+    outputs: [
+      "message",
+      "question",
+      "action",
+      "api",
+      "evaluator",
+      "gotoFlow",
+      "endFlow",
+    ],
+  },
+  evaluator: {
+    inputs: ["question", "form", "api", "action", "condition", "evaluator"],
+    outputs: [
+      "message",
+      "question",
+      "action",
+      "api",
+      "form",
+      "condition",
+      "evaluator",
+      "gotoFlow",
+      "endFlow",
+    ],
+  },
+  action: {
+    inputs: [
+      "message",
+      "question",
+      "condition",
+      "evaluator",
+      "api",
+      "form",
+      "action",
+    ],
+    outputs: [
+      "message",
+      "question",
+      "api",
+      "evaluator",
+      "condition",
+      "form",
+      "action",
+      "flowDynamic",
+      "gotoFlow",
+      "endFlow",
+    ],
+  },
+  api: {
+    inputs: [
+      "question",
+      "form",
+      "condition",
+      "evaluator",
+      "action",
+      "message",
+      "setvariable",
+    ],
+    outputs: [
+      "message",
+      "question",
+      "form",
+      "action",
+      "evaluator",
+      "condition",
+      "gotoFlow",
+      "endFlow",
+    ],
+  },
+  form: {
+    inputs: ["message", "condition", "action", "api", "evaluator"],
+    outputs: ["condition", "evaluator", "action", "api", "gotoFlow"],
+  },
+  flowDynamic: {
+    inputs: ["api", "action", "evaluator", "condition", "form"],
+    outputs: ["message", "question", "action", "gotoFlow", "endFlow"],
+  },
+  gotoFlow: {
+    inputs: ["condition", "evaluator", "form", "api", "action", "question"],
+    outputs: [],
+  },
+  fallBack: {
+    inputs: ["question", "action"],
+    outputs: [],
+  },
+  endFlow: {
+    inputs: [
+      "question",
+      "message",
+      "action",
+      "evaluator",
+      "form",
+      "condition",
+      "api",
+    ],
+    outputs: [],
+  },
+  idle: {
+    inputs: [
+      "question",
+      "message",
+      "form",
+      "action",
+      "api",
+      "evaluator",
+      "condition",
+    ],
+    outputs: ["gotoFlow", "endFlow", "flowDynamic", "action"],
+  },
+  setvariable: {
+    inputs: ["question", "form", "action"],
+    outputs: ["action", "api", "condition", "evaluator"],
+  },
 };
 
 const initialNodes = [
@@ -119,25 +211,46 @@ export default function App() {
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
 
-  const onConnect = useCallback(
-    (params) =>
-      setEdges((eds) =>
-        addEdge(
-          {
-            ...params,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-            },
-            style: {
-              strokeWidth: 2,
-              stroke: "#555",
-            },
+const onConnect = useCallback(
+  (params) => {
+    const sourceNode = nodes.find((n) => n.id === params.source);
+    const targetNode = nodes.find((n) => n.id === params.target);
+
+    if (!sourceNode || !targetNode) return;
+
+    const sourceRules = NODE_RULES[sourceNode.type];
+    const targetRules = NODE_RULES[targetNode.type];
+
+    const isValid =
+      sourceRules?.outputs?.includes(targetNode.type) &&
+      targetRules?.inputs?.includes(sourceNode.type);
+
+    if (!isValid) {
+      toast.error(
+        `❌ Conexión inválida: ${sourceNode.type} ➝ ${targetNode.type}`
+      );
+      return;
+    }
+
+    setEdges((eds) =>
+      addEdge(
+        {
+          ...params,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
           },
-          eds
-        )
-      ),
-    [setEdges]
-  );
+          style: {
+            strokeWidth: 2,
+            stroke: "#555",
+          },
+        },
+        eds
+      )
+    );
+  },
+  [nodes, setEdges]
+);
+
 
   const deleteNode = useCallback((nodeId) => {
     setNodes((nds) => nds.filter((node) => node.id !== nodeId));
@@ -188,20 +301,26 @@ export default function App() {
     event.dataTransfer.effectAllowed = "move";
   };
 
-  /*const isValidConnection = useCallback(
-    (connection) => {
-      /*if (connection.source === connection.target) return false;
+  const isValidConnection = (connection, nodes) => {
+    const sourceNode = nodes.find((n) => n.id === connection.source);
+    const targetNode = nodes.find((n) => n.id === connection.target);
 
-      const sourceNode = nodes.find((n) => n.id === connection.source);
-      const targetNode = nodes.find((n) => n.id === connection.target);
+    if (!sourceNode || !targetNode) return false;
+    if (connection.source === connection.target) return false;
 
-      if (!sourceNode || !targetNode) return false;
+    const sourceRules = NODE_RULES[sourceNode.type];
+    const targetRules = NODE_RULES[targetNode.type];
 
-      const allowedTargets = VALID_CONNECTIONS[sourceNode.type] || [];
-      return allowedTargets.includes(targetNode.type);
-    },
-    [nodes]
-  );*/
+    if (!sourceRules || !targetRules) return false;
+
+    const canOutputTo = sourceRules.outputs || [];
+    const canInputFrom = targetRules.inputs || [];
+
+    return (
+      canOutputTo.includes(targetNode.type) &&
+      canInputFrom.includes(sourceNode.type)
+    );
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -354,192 +473,210 @@ export default function App() {
   };
 
   return (
-    <div className="dndflow">
-      <ReactFlowProvider>
-        <div
-          className="reactflow-wrapper"
-          style={{ height: "100vh", width: "100vw" }}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onInit={setReactFlowInstance}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onNodeClick={onNodeClick}
-            nodeTypes={nodeTypes}
-            //isValidConnection={isValidConnection}
-            fitView
+    <>
+      <Toaster richColors position="bottom-right" />
+      <div className="dndflow">
+        <ReactFlowProvider>
+          <div
+            className="reactflow-wrapper"
+            style={{ height: "100vh", width: "100vw" }}
           >
-            <Controls />
-            <Background />
-          </ReactFlow>
-        </div>
-
-        <div className="sidebar">
-          <div className="node-palette">
-            <div
-              className="dndnode setvariable"
-              onDragStart={(event) => onDragStart(event, "setvariable")}
-              draggable
-            >
-              Set Variable
-            </div>
-            <div
-              className="dndnode start"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "start")
-              }
-            >
-              Inicio
-            </div>
-            <div
-              className="dndnode message"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "message")
-              }
-            >
-              Mensaje
-            </div>
-            <div
-              className="dndnode question"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "question")
-              }
-            >
-              Pregunta
-            </div>
-            <div
-              className="dndnode condition"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "condition")
-              }
-            >
-              Condición
-            </div>
-            <div
-              className="dndnode evaluator"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "evaluator")
-              }
-            >
-              Evaluador
-            </div>
-
-            <div
-              className="dndnode action"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "action")
-              }
-            >
-              Acción
-            </div>
-            <div
-              className="dndnode api"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "api")
-              }
-            >
-              API Request
-            </div>
-
-            <div
-              className="dndnode form"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "form")
-              }
-            >
-              Formulario
-            </div>
-
-            <div
-              className="dndnode idle"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "idle")
-              }
-            >
-              Idle Timeout
-            </div>
-
-            <div
-              className="dndnode fallback"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "fallback")
-              }
-            >
-              Fallback
-            </div>
-            <div
-              className="dndnode endflow"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "endflow")
-              }
-            >
-              End Flow
-            </div>
-            <div
-              className="dndnode gotoflow"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("application/reactflow", "gotoflow")
-              }
-            >
-              Goto Flow
-            </div>
-            <div
-              className="dndnode flowdynamic"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData(
-                  "application/reactflow",
-                  "flowdynamic"
-                )
-              }
-            >
-              Flow Dynamic
-            </div>
-          </div>
-
-          {selectedNode && (
-            <NodeEditor
-              node={selectedNode}
-              onUpdate={(nodeId, newData) => {
-                updateNodeData(nodeId, newData);
-              }}
-              onDelete={deleteNode}
+            <ReactFlow
               nodes={nodes}
-            />
-          )}
-          <div className="code-generator">
-            <button
-              onClick={() => {
-                const code = generateAndSaveFlow();
-                console.log("Código generado:", code);
-
-                // Opción 2: Mostrar en un modal/textarea
-                // setShowCodeModal(true);
-                // setGeneratedCode(code);
-              }}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onInit={setReactFlowInstance}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onNodeClick={onNodeClick}
+              nodeTypes={nodeTypes}
+              //isValidConnection={isValidConnection}
+              fitView
             >
-              Generar Código
-            </button>
+              <Controls />
+              <Background />
+            </ReactFlow>
           </div>
-        </div>
-      </ReactFlowProvider>
-    </div>
+
+          <div className="sidebar">
+            <div className="node-palette">
+              <div
+                className="dndnode setvariable"
+                onDragStart={(event) => onDragStart(event, "setvariable")}
+                draggable
+              >
+                Set Variable
+              </div>
+              <div
+                className="dndnode start"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData("application/reactflow", "start")
+                }
+              >
+                Inicio
+              </div>
+              <div
+                className="dndnode message"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData("application/reactflow", "message")
+                }
+              >
+                Mensaje
+              </div>
+              <div
+                className="dndnode question"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData(
+                    "application/reactflow",
+                    "question"
+                  )
+                }
+              >
+                Pregunta
+              </div>
+              <div
+                className="dndnode condition"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData(
+                    "application/reactflow",
+                    "condition"
+                  )
+                }
+              >
+                Condición
+              </div>
+              <div
+                className="dndnode evaluator"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData(
+                    "application/reactflow",
+                    "evaluator"
+                  )
+                }
+              >
+                Evaluador
+              </div>
+
+              <div
+                className="dndnode action"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData("application/reactflow", "action")
+                }
+              >
+                Acción
+              </div>
+              <div
+                className="dndnode api"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData("application/reactflow", "api")
+                }
+              >
+                API Request
+              </div>
+
+              <div
+                className="dndnode form"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData("application/reactflow", "form")
+                }
+              >
+                Formulario
+              </div>
+
+              <div
+                className="dndnode idle"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData("application/reactflow", "idle")
+                }
+              >
+                Idle Timeout
+              </div>
+
+              <div
+                className="dndnode fallback"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData(
+                    "application/reactflow",
+                    "fallback"
+                  )
+                }
+              >
+                Fallback
+              </div>
+              <div
+                className="dndnode endflow"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData("application/reactflow", "endflow")
+                }
+              >
+                End Flow
+              </div>
+              <div
+                className="dndnode gotoflow"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData(
+                    "application/reactflow",
+                    "gotoflow"
+                  )
+                }
+              >
+                Goto Flow
+              </div>
+              <div
+                className="dndnode flowdynamic"
+                draggable
+                onDragStart={(event) =>
+                  event.dataTransfer.setData(
+                    "application/reactflow",
+                    "flowdynamic"
+                  )
+                }
+              >
+                Flow Dynamic
+              </div>
+            </div>
+
+            {selectedNode && (
+              <NodeEditor
+                node={selectedNode}
+                onUpdate={(nodeId, newData) => {
+                  updateNodeData(nodeId, newData);
+                }}
+                onDelete={deleteNode}
+                nodes={nodes}
+              />
+            )}
+            <div className="code-generator">
+              <button
+                onClick={() => {
+                  const code = generateAndSaveFlow();
+                  console.log("Código generado:", code);
+
+                  // Opción 2: Mostrar en un modal/textarea
+                  // setShowCodeModal(true);
+                  // setGeneratedCode(code);
+                }}
+              >
+                Generar Código
+              </button>
+            </div>
+          </div>
+        </ReactFlowProvider>
+      </div>
+    </>
   );
 }
